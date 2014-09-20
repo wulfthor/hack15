@@ -1,0 +1,53 @@
+
+def main():
+
+        count=20
+        method="searcht"
+        origstring=""
+        optionstr=""
+        filelocation="/tmp/test.txt"
+        test=0
+        debug=0
+        lang="da"
+
+        try:
+          opts, args = getopt.getopt(sys.argv[1:],"s:g:h:m:c:dta:f:i:j:w:")
+          for o, a in opts:
+            if o == "-s":
+              origstring = a
+              searchstring = urllib2.quote(a.encode('utf8'))
+            elif o == "-g":
+              fromdate = a
+              optionstr=optionstr+"&from-date="+fromdate
+            elif o == "-h":
+              todate = a
+              optionstr=optionstr+"&to-date="+todate
+            elif o == "-i":
+              tag = a
+              optionstr=optionstr+"&tag=type/"+tag
+            elif o == "-m":
+              method = a
+            elif o == "-c":
+              count = a
+              optionstr=optionstr+"&page-size="+count
+            elif o == "-j":
+              pagenumber = a
+              optionstr=optionstr+"&page="+pagenumber
+            elif o == "-w":
+              wordcount = a
+              optionstr=optionstr+"&min-wordcount=2&max-wordcount="+wordcount
+            elif o == "-t":
+              test = 1
+            elif o == "-d":
+              debug = 1
+            elif o == "-f":
+              filelocation = a
+            elif o == "-l":
+              lang = a
+            else:
+              assert False, "unhandled option"
+
+        except getopt.GetoptError as err:
+          print(err)
+          sys.exit(2)
+
