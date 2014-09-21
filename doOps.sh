@@ -55,6 +55,11 @@ case $key in
 	dString="${dString},'object_production_date_latest':$1"
     shift
     ;;
+    -dt|--dateText)
+    object_production_date="$1"
+	dString="${dString},'object_production_date':$1"
+    shift
+    ;;
     -t|--technique)
     prod_technique_dk="$1"
 	dString="${dString},'prod_technique_dk':$1"
