@@ -13,6 +13,9 @@ import pprint
 import logging
 from py2neo import cypher
 
+def doName(tmpName):
+	retval=re.sub('\'',' ap ',tmpName)
+	return retval
 
 def doDate(earlS,lateS):
 	retVal=""
@@ -39,81 +42,92 @@ def doDate(earlS,lateS):
 
 def main():
 #	Abraham Bloemaert;1566;25-12-1566;1566-12-25;1651;27-01-1651;1651-01-27;Hollandsk;original
+#	Andrea Proccaccini;(?);(?);(?);(?);(?);(?);(?);original
+#	MATCH (y:Year { year:1860}) MERGE (a:Artist {name:'Alphonse Mucha',nation:'Tjekkisk'}) CREATE (a)-[:BORN]->(y);
+#	MATCH (y:Year { year:1894}), (a:Artist {name:'Alphonse Mucha'}) CREATE (a)-[:DIED]->(y);
 #	MATCH (x) WHERE HAS (x.x) MERGE (y { y:"y" }) CREATE (y)-[:REL]->(x);
+#	MATCH (y:Year { year:1858}), (x:Year {year:1895}) MERGE  (a:Artist {name:'Axel Schmidt',nation:'Dansk'}) CREATE (a)-[:BORN]->(y), (a)-[:DIED]->(x);
+
 	reload(sys);
 	sys.setdefaultencoding("utf8")
 	myhome="/usr/local/twm"
 	artistList=[]
 	limit=1777
+	dummyB=4321
+	dummyD=4391
 	logging.basicConfig(filename=myhome+'/logs/thw.log',level=logging.DEBUG)
 	session = cypher.Session("http://localhost:7474")
-	tx = session.create_transaction()
 
 	fh=open(sys.argv[1],"r")
 	fhlines=fh.readlines()
 	for line in fhlines:
-		cyP="MERGE (a:Artist {"
-		cyA="MATCH (y:Year) { y.year:"
+		tx = session.create_transaction()
+		cyP="MERGE "
+		cyAr=" (a:Artist {name:'"
+		cyBE=" CREATE (a)-[:BORN]->(y)"
+		cyDE=" (a)-[:DIED]->(x)"
+		cyA="MATCH (y:Year { year:"
 		logging.debug(line)
 		tmpLine=line.split(";")
-		artist=tmpLine.pop(0).rstrip()
+		artist=doName(tmpLine.pop(0).rstrip())
+		if (re.search('ubekendt',artist,re.IGNORECASE)):
+			logging.debug('unkown ' + line)
+			continue
 		if artist in artistList:
 			logging.debug('Already done: ' + artist)
 			continue
 			
 		print "A:artist:" + artist
-		cyP = cyP + ("name:'%s'," % artist)
+		cyAr = cyAr + ("%s'," % artist)
 		artistList.append(artist)
 		trash=tmpLine.pop()
 		nation=tmpLine.pop().rstrip()
 		print "A:nation:" + nation
-		cyP = cyP + ("nation:'%s'})" % nation)
+		cyAr = cyAr + ("nation:'%s'})" % nation)
 
+# BIRTH
 		tmpbirthY=tmpLine.pop(0).rstrip()
+		if not tmpbirthY.find("(?)"):
+			logging.debug("unknown data on %s" % artist)
+			continue
 		birthY=re.sub('[^0-9-]','',tmpbirthY)
-		birthYint=int(birthY)
+		try:
+			birthYint=int(birthY)
+		except ValueError:
+			birthYint=dummyB;
 		print "D:BY:" + birthY
 		if (birthYint < limit):
 			logging.debug("too old %s" % birthY)
 			continue
-		cyA = cyA + ("'%s'}) " % birthY)
-		cyF = cyA + cyP + " CREATE (a)-[:BORN]->(y);"
-		tx.append(cyF)
-		print "CC:" + cyF
-
+		cyA = cyA + ("%s}) " % birthY)
+#cyA="MATCH (y:Year { year:"
+#cyF = cyA + cyP + cyAr + cyBE
 		tmpbirthD=tmpLine.pop(0).rstrip()
 		birthD=re.sub('[^0-9-]','',tmpbirthD)
 		print "D:BD:" + birthD
+
+# DEATH
+#	MATCH (y:Year { year:1858}), (x:Year {year:1895}) MERGE  (a:Artist {name:'Axel Schmidt',nation:'Dansk'}) CREATE (a)-[:BORN]->(y), (a)-[:DIED]->(x);
+		cyB="(x:Year { year:"
 		trash=tmpLine.pop(0).rstrip()
 		tmpDeathY=tmpLine.pop(0).rstrip()
+		if not tmpDeathY.find("(?)"):
+			logging.debug("still alive %s" % artist)
+			continue
 		deathY=re.sub('[^0-9-]','',tmpDeathY)
 		print "D:DY:" + deathY
+		if (deathY < limit):
+			logging.debug("too old %s" % deathY)
+			continue
+		cyB = cyB + ("%s}) " % deathY)
+		cyF = cyA + ", " + cyB + cyP + cyAr + cyBE + ", " + cyDE + ";"
 		tmpDeathD=tmpLine.pop(0).rstrip()
 		deathD=re.sub('[^0-9-]','',tmpDeathD)
 		print "D:DD:" + deathD
-
-# send three statements to for execution but leave the transaction open
-	tx.append("MERGE (a:Person {name:'Alice'}) "
-			"RETURN a")
-	tx.append("MERGE (b:Person {name:'Bob'}) "
-			"RETURN b")
-	tx.append("MATCH (a:Person), (b:Person) "
-			"WHERE a.name = 'Alice' AND b.name = 'Bob' "
-			"CREATE UNIQUE (a)-[ab:KNOWS]->(b) "
-			"RETURN ab")
-#tx.execute()
-
-# send another three statements and commit the transaction
-	tx.append("MERGE (c:Person {name:'Carol'}) "
-			"RETURN c")
-	tx.append("MERGE (d:Person {name:'Dave'}) "
-			"RETURN d")
-	tx.append("MATCH (c:Person), (d:Person) "
-			"WHERE c.name = 'Carol' AND d.name = 'Dave' "
-			"CREATE UNIQUE (c)-[cd:KNOWS]->(d) "
-			"RETURN cd")
-#	tx.commit()
-
+		print "cyNF:" + cyF
+		tx.append(cyF)
+		tx.execute()
+		tx.commit()
 
 if __name__ == '__main__':
 	main()
