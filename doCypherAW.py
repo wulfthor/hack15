@@ -43,9 +43,6 @@ def doDate(earlS,lateS):
 def main():
 #	Abraham Bloemaert;1566;25-12-1566;1566-12-25;1651;27-01-1651;1651-01-27;Hollandsk;original
 #	Andrea Proccaccini;(?);(?);(?);(?);(?);(?);(?);original
-#Abraham de Haen d.Y.;1707 - 1748; Hollandsk
-#Abraham de Verwer;Ca. 1585 - 1650; Hollandsk
-#Michael Kvium;15-11-1955 - (?); Dansk
 #	MATCH (y:Year { year:1860}) MERGE (a:Artist {name:'Alphonse Mucha',nation:'Tjekkisk'}) CREATE (a)-[:BORN]->(y);
 #	MATCH (y:Year { year:1894}), (a:Artist {name:'Alphonse Mucha'}) CREATE (a)-[:DIED]->(y);
 #	MATCH (x) WHERE HAS (x.x) MERGE (y { y:"y" }) CREATE (y)-[:REL]->(x);
@@ -53,23 +50,45 @@ def main():
 
 	reload(sys);
 	sys.setdefaultencoding("utf8")
-	myhome="/home/thw"
+	myhome="/usr/local/twm"
 	artistList=[]
 	limit=1777
 	dummyB=4321
 	dummyD=4391
 	logging.basicConfig(filename=myhome+'/logs/thw.log',level=logging.DEBUG)
-	session = cypher.Session("http://192.168.10.31:7474")
+	session = cypher.Session("http://localhost:7474")
 
 	fh=open(sys.argv[1],"r")
 	fhlines=fh.readlines()
+#----------
 	for line in fhlines:
-		tx = session.create_transaction()
+		print line
+		statement=""
+		tmpLine=line.split("@")
+		tmpacq_date=tmpLine.pop().rstrip()
+		acq_date=re.sub('[^0-9-]','',tmpacq_date)
+		print "D:acq:" + acq_date
+		lateD=tmpLine.pop()
+		print "D:lateD:" + lateD
+		earlD=tmpLine.pop()
+		print "D:earlD:" + earlD
+		title=tmpLine.pop(0)
+		print "T:title: " + title
+		artist=tmpLine.pop().rstrip()
+		print "A:artist:" + artist
+		realDate=doDate(earlD,lateD)
+		print "RD:realDate:" + realDate
+
+		print "\n"
+
+#	----------
+#	MATCH (a:Artist { name:'Kasper Heiberg'}),(y:Year {year:1922}),(x:Year {year:1999})  MERGE  (w:Artwork {title:'Axel Schmidt'}) CREATE (a)-[:PAINTED]->(w), (w)-[:CRY]->(y), w-[:ACQY]->(x);
 		cyP="MERGE "
-		cyAr=" (a:Artist {name:'"
-		cyBE=" CREATE (a)-[:BORN]->(y)"
-		cyDE=" (a)-[:DIED]->(x)"
-		cyA="MATCH (y:Year { year:"
+		cyAr=" (w:Artwork {title:'"
+		cyPA=" CREATE (a)-[:PAINTED]->(w)"
+		cyPD=" (w)-[:CRY]->(y)"
+		cyAD=" (w)-[:ACQY]->(x)"
+		cyA="MATCH (a:Artist { year:"
 		logging.debug(line)
 		tmpLine=line.split(";")
 		artist=doName(tmpLine.pop(0).rstrip())
@@ -80,16 +99,15 @@ def main():
 			logging.debug('Already done: ' + artist)
 			continue
 			
-    #Abraham de Verwer;Ca. 1585 - 1650; Hollandsk
 		print "A:artist:" + artist
 		cyAr = cyAr + ("%s'," % artist)
 		artistList.append(artist)
+		trash=tmpLine.pop()
 		nation=tmpLine.pop().rstrip()
 		print "A:nation:" + nation
 		cyAr = cyAr + ("nation:'%s'})" % nation)
 
 # BIRTH
-  m=re.search('<faObjectProductionPerson>.*\'(.*)\'</faObjectProductionPerson>', myxml)
 		tmpbirthY=tmpLine.pop(0).rstrip()
 		if not tmpbirthY.find("(?)"):
 			logging.debug("unknown data on %s" % artist)
@@ -135,3 +153,52 @@ def main():
 
 if __name__ == '__main__':
 	main()
+#!/usr/bin/python
+
+import sys
+import os
+import base64
+import pdb
+import urllib2
+import urllib
+import re
+import csv
+import re
+import pprint
+import logging
+from py2neo import cypher
+
+
+def doDate(earlS,lateS):
+	retVal=""
+#earlS = 1778-01-01T00:00:00Z
+#lateS = 1778-12-31T00:00:00Z
+	tmpEarl=earlS.split("-")
+	tmpLate=lateS.split("-")
+	yE=int(tmpEarl.pop(0))
+	yL=int(tmpLate.pop(0))
+	mE=tmpEarl.pop(0)
+	mL=tmpLate.pop(0)
+	dE=tmpEarl.pop(0).split("T")
+	dL=tmpLate.pop(0).split("T")
+
+	if (yE != yL):
+		tmpx=(((yL + 0.0) - (yE+0.0))/2)
+		retVal=str(int(round(tmpx) + yE))
+	elif mE == "01" and  mL == "12":
+		retVal=str(yL) + "-06-01"
+	else:
+		retVal=str(yE) + "-" + mE + "-" + dE[0]
+			
+	return retVal
+
+def main():
+	reload(sys);
+	sys.setdefaultencoding("utf8")
+	myhome="/usr/local/twm"
+	logging.basicConfig(filename=myhome+'/logs/thw.log',level=logging.DEBUG)
+	session = cypher.Session("http://localhost:7474")
+	tx = session.create_transaction()
+
+	fh=open(sys.argv[1],"r")
+	fhlines=fh.readlines()
